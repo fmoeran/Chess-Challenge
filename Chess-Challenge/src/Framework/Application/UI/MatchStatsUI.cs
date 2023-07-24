@@ -23,6 +23,20 @@ namespace ChessChallenge.Application
                 DrawStats(controller.BotStatsA);
                 startPos.Y += spacingY * 2;
                 DrawStats(controller.BotStatsB);
+                startPos.Y += spacingY * 2;
+                // draw ELO diff
+                double score = (controller.BotStatsA.NumWins + controller.BotStatsA.NumDraws * 0.5);
+                double total = (double)controller.CurrGameNumber-1;
+                double perc = score / total;
+                double eloDiff = -400 * Math.Log(1 / perc - 1) / 2.303;
+
+                if(controller.CurrGameNumber == 1)DrawNextText($"Elo Difference: Nan", headerFontSize, Color.WHITE);
+                else if((int) eloDiff == -2147483648){
+                    if(eloDiff > 0)DrawNextText($"Elo Difference: +Inf", headerFontSize, Color.WHITE);
+                    else DrawNextText($"Elo Difference: -Inf", headerFontSize, Color.WHITE);
+                }
+                else if(eloDiff > 0)DrawNextText($"Elo Difference: +{(int)eloDiff}", headerFontSize, Color.WHITE);
+                else DrawNextText($"Elo Difference: {(int)eloDiff}", headerFontSize, Color.WHITE);
            
 
                 void DrawStats(ChallengeController.BotMatchStats stats)

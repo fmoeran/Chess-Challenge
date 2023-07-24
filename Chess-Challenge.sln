@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chess-Challenge", "Chess-Ch
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9FC5D849-F0B6-4C89-A541-C36A341AE67C}"
 	ProjectSection(SolutionItems) = preProject
-		.editorconfig = .editorconfig
+		.editorconfig = .editorconfig 
 	EndProjectSection
 EndProject
 Global

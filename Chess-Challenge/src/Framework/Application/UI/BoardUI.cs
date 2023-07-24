@@ -3,7 +3,6 @@ using Raylib_cs;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using System.IO;
 using static ChessChallenge.Application.UIHelper;
 
 namespace ChessChallenge.Application
@@ -54,8 +53,10 @@ namespace ChessChallenge.Application
         public BoardUI()
         {
             theme = new BoardTheme();
-
-            LoadPieceTexture();
+            piecesTexture = Raylib.LoadTexture(UIHelper.GetResourcePath("Pieces.png"));
+            Raylib.GenTextureMipmaps(ref piecesTexture);
+            Raylib.SetTextureWrap(piecesTexture, TextureWrap.TEXTURE_WRAP_CLAMP);
+            Raylib.SetTextureFilter(piecesTexture, TextureFilter.TEXTURE_FILTER_BILINEAR);
 
             board = new Board();
             board.LoadStartPosition();
@@ -338,7 +339,7 @@ namespace ChessChallenge.Application
             }
         }
 
-        static Vector2 GetSquarePos(int file, int rank, bool whitePerspective)
+        Vector2 GetSquarePos(int file, int rank, bool whitePerspective)
         {
             const int boardStartX = -squareSize * 4;
             const int boardStartY = -squareSize * 4;
@@ -381,19 +382,6 @@ namespace ChessChallenge.Application
                 t = Math.Min(1, Math.Max(t, 0));
                 return a + (b - a) * t;
             }
-        }
-
-        void LoadPieceTexture()
-        {
-            // Workaround for Raylib.LoadTexture() not working when path contains non-ascii chars
-            byte[] pieceImgBytes = File.ReadAllBytes(GetResourcePath("Pieces.png"));
-            Image pieceImg = Raylib.LoadImageFromMemory(".png", pieceImgBytes);
-            piecesTexture = Raylib.LoadTextureFromImage(pieceImg);
-            Raylib.UnloadImage(pieceImg);
-
-            Raylib.GenTextureMipmaps(ref piecesTexture);
-            Raylib.SetTextureWrap(piecesTexture, TextureWrap.TEXTURE_WRAP_CLAMP);
-            Raylib.SetTextureFilter(piecesTexture, TextureFilter.TEXTURE_FILTER_BILINEAR);
         }
 
         public void Release()
