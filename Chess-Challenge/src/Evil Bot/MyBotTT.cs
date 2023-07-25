@@ -112,7 +112,7 @@ public class MyBotTT : IChessBot
         ulong TTind = board.ZobristKey % (ulong)TT.Length;
         TTEntry entry = TT[TTind];
         if (entry.zobrist == board.ZobristKey && entry.depth >= depth &&
-            ((entry.nodeType == NodeType.LOWER && entry.moveValue.value >= beta) ||
+            (entry.nodeType == NodeType.EXACT || (entry.nodeType == NodeType.LOWER && entry.moveValue.value >= beta) ||
              (entry.nodeType == NodeType.UPPER && entry.moveValue.value <= alpha)))
         {
 
@@ -140,8 +140,7 @@ public class MyBotTT : IChessBot
             if (currentEval > alpha) alpha = currentEval;
         }
 
-        Span<Move> moves = new(new Move[256]);
-        board.GetLegalMovesNonAlloc(ref moves, depth <= 0);
+        Move[] moves = board.GetLegalMoves(depth <= 0);
         
         sortMoves(ref moves);
 
@@ -178,8 +177,36 @@ public class MyBotTT : IChessBot
 
     int EvaluateBoard()
     {
-        return EvaluateColour(board.IsWhiteToMove) - EvaluateColour(!board.IsWhiteToMove);
+        // sum piece
+        int res = 0;
+        var pieceLists = board.GetAllPieceLists();
+        for (int pieceType = 0; pieceType < 6; pieceType++)
+        {
+            // PIECE SQUARE VALUE SUMS
+            res += (pieceLists[pieceType].Count - pieceLists[pieceType + 6].Count) * pieceValues[pieceType];
+
+            // PIECE SQUARE ESTIMATES
+            ulong friendlyBB = board.GetPieceBitboard((PieceType)pieceType + 1, true);
+            ulong enemyBB = board.GetPieceBitboard((PieceType)pieceType + 1, false);
+            while (friendlyBB > 0)
+                res += pieceSquareEstimaters[pieceType](
+                       new Square(PopLsb(ref friendlyBB)));
+            while (enemyBB > 0)
+                res -= pieceSquareEstimaters[pieceType](
+                    new Square(PopLsb(ref enemyBB) ^ 56)); // xor with 56 flips the index of the square to treat it as if it was for the other team
+        }
+
+
+        if (!board.IsWhiteToMove) res = -res;
+
+        //res += EvaluateColour(board.IsWhiteToMove) - EvaluateColour(!board.IsWhiteToMove);
+
+        return res;
+
     }
+
+    int PopLsb(ref ulong bitmap) => BitboardHelper.ClearAndGetIndexOfLSB(ref bitmap);
+
     int EvaluateColour(bool isWhite)
     {
         // sum piece
@@ -203,10 +230,10 @@ public class MyBotTT : IChessBot
         return pieceValues[(int)board.GetPiece(sq).PieceType - 1];
     }
 
-    void sortMoves(ref Span<Move> moves)
+    void sortMoves(ref Move[] moves)
     {
 
-        Span<int> moveScores = new (new int[moves.Length]);
+        int[] moveScores = new int[moves.Length];
         Move hashMove = TT[board.ZobristKey % (ulong)TT.Length].moveValue.move;
         for (int i = 0; i < moves.Length; i++)
         {
@@ -220,7 +247,7 @@ public class MyBotTT : IChessBot
             // negate so that the moves get sorted best to worst
             moveScores[i] *= -1;
         }
-        MemoryExtensions.Sort(moveScores, moves);
+        Array.Sort(moveScores, moves);
     }
     
     IEnumerable<int> IterBitboard(ulong bitmap)
