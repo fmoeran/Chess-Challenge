@@ -15,6 +15,21 @@ public class MyBot : IChessBot
         public int value;
     }
 
+    struct TTEntry
+    {
+        public ulong key;
+        public MoveValue moveValue;
+        public int depth,  bound;
+        public TTEntry(ulong _key, MoveValue _moveValue, int _depth, int _bound)
+        {
+            key = _key; moveValue = _moveValue; depth = _depth;  bound = _bound;
+        }
+    }
+
+    const int entries = (1 << 20);
+    TTEntry[] tt = new TTEntry[entries];
+
+
     // Piece values: pawn, knight, bishop, rook, queen, king
     int[] pieceValues = { 100, 300, 350, 550, 900, 0}, attackWeights = { 0, 25, 50, 75, 88, 94, 97, 99, 99}, gamePhaseIncs = { 0, 1, 1, 2, 4, 0 };
 
@@ -74,7 +89,23 @@ public class MyBot : IChessBot
 
         int currentEval = 0;
 
-        if (depth <= 0) // quiescence
+        ulong key = board.ZobristKey;
+
+        TTEntry entry = tt[key % entries];
+
+        bool notRoot = depth != rootDepth;
+
+        // TT cutoffs
+        if (notRoot &&  entry.key == key && entry.depth >= depth && (
+            entry.bound == 3 // exact score
+                || entry.bound == 2 && entry.moveValue.value >= beta // lower bound, fail high
+                || entry.bound == 1 && entry.moveValue.value <= alpha // upper bound, fail low
+        ))
+        {
+            return entry.moveValue;
+        }
+        // quiescence
+        if (depth <= 0) 
         {
             currentEval = EvaluateColour(board.IsWhiteToMove) - EvaluateColour(!board.IsWhiteToMove);
             if (currentEval >= beta) return new (bestMove, beta);
@@ -82,10 +113,13 @@ public class MyBot : IChessBot
         }
 
         var moves = board.GetLegalMoves(depth <= 0);
+
+        // sorting
         var moveScores = new int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
         {
-            if (moves[i].IsCapture) moveScores[i] -= pieceValues[(int)moves[i].CapturePieceType - 1] - pieceValues[(int)moves[i].MovePieceType - 1] / 10;
+            if (moves[i] == entry.moveValue.move) moveScores[i] = -100000;
+            if (moves[i].IsCapture) moveScores[i] = pieceValues[(int)moves[i].MovePieceType - 1] / 10 - pieceValues[(int)moves[i].CapturePieceType - 1];
         }
         Array.Sort(moveScores, moves);
 
@@ -99,20 +133,33 @@ public class MyBot : IChessBot
             return new(bestMove, 0);
         }
 
+        // bound set to upper
+        int bound = 1;
+
         foreach (Move move in moves)
         {
             board.MakeMove(move);
             int newEval = -NegaMax(depth - 1, -beta, -alpha).value;
             board.UndoMove(move);
 
-            if (newEval >= beta) return new(move, beta);
+            if (newEval >= beta)
+            {
+                bound = 2; // lower
+                alpha = beta;
+                bestMove = move;
+                break;
+            }
             
             if (newEval > alpha)
             {
+                bound = 3; // exact
                 bestMove = move;
                 alpha = newEval;
             }
         }
+
+        tt[key % entries] = new(key, new(bestMove, alpha), depth, bound);
+
         return new (bestMove, alpha);
     }
 
