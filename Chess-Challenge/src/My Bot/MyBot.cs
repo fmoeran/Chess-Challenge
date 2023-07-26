@@ -1,10 +1,6 @@
 ﻿using System;
 using ChessChallenge.API;
 using System.Numerics;
-using System.Collections.Generic;
-
-
-
 public class MyBot : IChessBot
 {
     struct MoveValue
@@ -20,72 +16,57 @@ public class MyBot : IChessBot
     }
 
     // Piece values: pawn, knight, bishop, rook, queen, king
-    int[] pieceValues = { 100, 300, 350, 550, 900, 0};
-    // used for king safety. I cba explain it
-    int[] attackWeights = { 0, 25, 50, 75, 88, 94, 97, 99, 99, 99, 99, 99, 99, 99, 99 };
+    int[] pieceValues = { 100, 300, 350, 550, 900, 0}, attackWeights = { 0, 25, 50, 75, 88, 94, 97, 99, 99}, gamePhaseIncs = { 0, 1, 1, 2, 4, 0 };
 
-    int[] gamePhaseIncs = { 0, 1, 1, 2, 4, 0 };
-
-    static Board board;
+    Board board;
     Timer timer;
 
-    int rootDepth = 0;
-    
-    static int NEGATIVE_INFINITY = -99999999;
-    static int POSITIVE_INFINITY = 99999999;
-    static int CHECKMATE_EVAL = -9999999;
 
-    private static ulong aFile = 0x8080808080808080;
+    int NEGATIVE_INFINITY = -99999999, POSITIVE_INFINITY = 99999999, CHECKMATE_EVAL = -9999999, rootDepth;
 
     public Move Think(Board pboard, Timer ptimer)
     {
         board = pboard;
         timer = ptimer;
         MoveValue bestMoveValue = new ();
-        MoveValue bestMoveValueThisIteration = new();
-        int rootDepth = 0;
-        while (!ShouldFinishSearch())
+        rootDepth = 0;
+        while (timer.MillisecondsElapsedThisTurn < 50)
         {
             rootDepth++;
-            bestMoveValueThisIteration = NegaMax(rootDepth, NEGATIVE_INFINITY, POSITIVE_INFINITY);
-            bestMoveValue = bestMoveValueThisIteration;
+            bestMoveValue = NegaMax(rootDepth, NEGATIVE_INFINITY, POSITIVE_INFINITY);
+            
         }
         Console.WriteLine("Depth: " + rootDepth);
         Console.WriteLine("Eval: " + bestMoveValue.value);
+
         return bestMoveValue.move;
     }
 
     ulong[] whitePSQT = {
-         0xFF84E945B57084FF, 0x005ACA33883F3400, 0x002C0F45B5075000, 0xFF1ADE9D2230BEFF, 0xFFEA030426FE42FF, 0xFF9CB385A7BF9FFF, 0xFFA38385A7BF9FFF, 0x007F7C7A58406000,
-         0x328E81AEB4F0CA7D, 0x687A716DA856EA46, 0xD8E5775E36B06935, 0xC2D6C8A852C1D0D7, 0x2A4AB51983021E00, 0xF6E45A218383DDFB, 0x4CC321018383DFFE, 0x103CFEFE7C7C2000,
-         0xB092210E01314C47, 0xFCD118453650908E, 0x5FF76B7F896E1746, 0x6E14A5CA8821B9CC, 0xEE88FEFB9101D972, 0xD72D81C3810199BF, 0xFB8D81C3810199FF, 0x00727E3C7EFE6600,
-         0x52B5DBC241FE6719, 0x5A1C2AF403128CE5, 0x5A49D70C634EC2F8, 0xC8E1249DC93D1765, 0x8F9229666D715966, 0x103C41C7EEFE5EA7, 0x000001C7EFFFDFE7, 0xFFFFFE3810002018,
-         0x23566A2FC0D556E0, 0x8C28DC80EF63DA74, 0x15561E2FA29170B2, 0xE65B5EDC50AB9813, 0xE20E4DD0FDBEDA85, 0x13BDAFDFFFBFDB77, 0x031F0FDFFFBFDBF7, 0xFCE0F02000402408,
-         0x1414F8FB6CB7ACB2, 0xCB7517F201639FDF, 0x0CE928E98DC3A231, 0x4B47FEC33A5FBB51, 0x507A2584BB18971A, 0x68BEBD7F46E7A731, 0x79FEBDFFFFFFBF39, 0x86014200000040C6,
-         0xFF143BC864B426FF, 0x001FA406658A5700, 0x0002E5E81C278600, 0xFF2D293AC05B66FF, 0xFF6BE539FCFFE6FF, 0xFF57DD38FCFFE6FF, 0xFF7F0238FCFFE6FF, 0x007FFFC703001900,
-         0xF9A7C27F3EE2ABD0, 0x53B7E24208622788, 0x2B2500C1F72A086B, 0x4348D3DFC9C5F3BC, 0x869AB04242269D42, 0xBC7F73C3C3E77E3D, 0x7FFFF3C3C3E7FFFF, 0x00000C3C3C180000,
-         0x4D9166514B2681E8, 0x2BD703D5DEB66112, 0x51D6A00159C6D7E8, 0xC384FDC012A45BA5, 0x3C7FFFC1D3673C5A, 0xFFFFFFC1D3E7FFFF, 0xFFFFFFC1D3E7FFFF, 0x0000003E2C180000,
-         0xC0F9E802F7C6C794, 0x75F6A7BE4541B887, 0xCC50FF013E958350, 0xC0E01FFB0F8A0CCE, 0xC0F0FFFBFF7FFF7F, 0xC0F0FFFBFFFFFFFF, 0xC0F0FFFBFFFFFFFF, 0x3F0F000400000000,
-         0xBEFB53835EAB5DD7, 0xA17A71FDBC00C4E8, 0xB84B4A2057AF5812, 0x1EE11B0F9B897BCC, 0x018C3AA968884098, 0x01910351018BBF77, 0x01810301018BFFFF, 0xFE7EFCFEFE740000,
-         0x919E52AB9027D339, 0x0144B4852AD318A5, 0xEC3A1A581362E530, 0xCC4064DE3D59A4E4, 0x502160A182C26689, 0xDE01008183C3E77E, 0xDF01008183C3E7FF, 0x20FEFF7E7C3C1800
-    };
-
-    ulong[] blackPSQT ;
+         0x007B16BA4B8F7B00, 0x0021DC89C2B04F00, 0x000D1BCDF7871B00, 0xFF1BCE1560B0B5FF, 0xFFEB0304667E43FF, 0xFF9DB385E7BF9EFF, 0xFFA28385E7BF9FFF, 0x007F7C7A18406000,
+         0xCC717E504B0D3582, 0xA40B0F3DE35BDFC4, 0x5CE4794E75B97CB5, 0xC6D6C0A813C8C457, 0x2E4AB519820A1A00, 0xF2E45A21838BDDFB, 0x4CC32101838BDFFE, 0x103CFEFE7C742000,
+         0x4F6DDEF1FEEEB3B8, 0xB3BCC6B4C8BE2336, 0x5CDBADCF41C03476, 0x6E1C214AC8A199FC, 0xEE80FEFBD181D942, 0xD72D81C3C18199BF, 0xFB8D81C3C18199FF, 0x00727E3C3E7E6600,
+         0x9D4B043DAE0090E6, 0xE7570EC9BD121C03, 0xFF0AD305DF4ED2FA, 0x6DE3249C553D0767, 0xAA90296679715964, 0x303C41C7FEFE5EA7, 0x200001C7FFFFDFE7, 0xDFFFFE3800002018,
+         0x5CA995D33A2AA91B, 0x50814950D549736F, 0x45D71F7FB29951B9, 0xA6DA5F8C40A3991A, 0xE28E4CD0FDBEDB8D, 0x133DAFDFFFBFDA7F, 0x031F0FDFFFBFDBFF, 0xFCE0F02000402400,
+         0xEBEB060C97C8134D, 0x209E11F6922BCC92, 0x2C6328ED1FCBE231, 0x6B45FEC72857FB51, 0x707A2580BB18D71A, 0x48BEBD7F46E7E731, 0x79FEBDFFFFFFFF39, 0x86014200000000C6,
+         0x00EAC437994BD900, 0x00F46031FEC18E00, 0x00E2A5D986660E00, 0xFFCD292B421B6EFF, 0xFFABE538FEFFEEFF, 0xFFD7DD38FEFFEEFF, 0xFFFF0238FEFFEEFF, 0x00FFFFC701001100,
+         0xE6C81580C11D542F, 0x55FFFFC2C97F73A7, 0x2F6D1D413637584C, 0x4700CEDFC9D0A3B8, 0x829ABC4242369D42, 0xBC7F7FC3C3F77E3D, 0x7FFFFFC3C3F7FFFF, 0x0000003C3C080000,
+         0x926E99A434D9DE05, 0xB9B99A7BEA6F3F17, 0xC1FE382B798FC9ED, 0x43ACE5EA32AD53A0, 0x3C57FFEBF36E3C5A, 0xFFFFFFEBF3EFFFFF, 0xFFFFFFEBF3EFFFFF, 0x000000140C100000,
+         0x3F0617FD0839086A, 0x4AF0B0434D78B0ED, 0xC650EF4036AD8338, 0xC2E01FBB0FA20CE6, 0xC2F0FFFBFF5FFF5F, 0xC2F0FFFBFFFFFFFF, 0xC2F0FFFBFFFFFFFF, 0x3D0F000400000000,
+         0x58042874A146A228, 0xF97EDD811D5466C0, 0xE04FC62056FB7A12, 0x5EE59F0F9BD959CC, 0x4188BEA968D84098, 0x4191875101DBBF77, 0x4181870101DBFFFF, 0xBE7E78FEFE240000,
+         0x6F618D5C3F582DC6, 0x6F2519D9558B3463, 0x821B1300466AC172, 0xCE4165DE7951A4A6, 0x522061A1C2C2668B, 0xDC010181C3C3E77C, 0xDF010181C3C3E7FF, 0x20FEFE7E3C3C1800,
+    }, blackPSQT = new ulong[96];
 
 
     public MyBot()
     {
-        blackPSQT = new ulong[whitePSQT.Length];
         for (int i = 0; i < whitePSQT.Length; ++i)
         {
-            byte[] bytes = BitConverter.GetBytes(whitePSQT[i]);
+            var bytes = BitConverter.GetBytes(whitePSQT[i]);
             Array.Reverse(bytes);
             blackPSQT[i] = BitConverter.ToUInt64(bytes);
         }
-
-       
     }
-
 
     MoveValue NegaMax(int depth, int alpha, int beta)
     {
@@ -95,15 +76,20 @@ public class MyBot : IChessBot
 
         if (depth <= 0) // quiescence
         {
-            currentEval = EvaluateBoard();
+            currentEval = EvaluateColour(board.IsWhiteToMove) - EvaluateColour(!board.IsWhiteToMove);
             if (currentEval >= beta) return new (bestMove, beta);
             if (currentEval > alpha) alpha = currentEval;
         }
 
-        var moves = board.GetLegalMoves(depth<=0);
+        var moves = board.GetLegalMoves(depth <= 0);
+        var moveScores = new int[moves.Length];
+        for (int i = 0; i < moves.Length; i++)
+        {
+            if (moves[i].IsCapture) moveScores[i] -= pieceValues[(int)moves[i].CapturePieceType - 1] - pieceValues[(int)moves[i].MovePieceType - 1] / 10;
+        }
+        Array.Sort(moveScores, moves);
 
-
-        if (depth != rootDepth &&  board.IsRepeatedPosition()) return new(bestMove, 0);
+        if (depth != rootDepth && board.IsRepeatedPosition()) return new(bestMove, 0);
 
 
         if (moves.Length == 0)
@@ -112,8 +98,6 @@ public class MyBot : IChessBot
             if (board.IsInCheck()) return new(bestMove, CHECKMATE_EVAL - depth);
             return new(bestMove, 0);
         }
-
-        SortMoves(ref moves);
 
         foreach (Move move in moves)
         {
@@ -132,13 +116,10 @@ public class MyBot : IChessBot
         return new (bestMove, alpha);
     }
 
-    int EvaluateBoard()
-    {
-        return EvaluateColour(board.IsWhiteToMove) - EvaluateColour(!board.IsWhiteToMove);
-    }
-    
     int EvaluateColour(bool isWhite)
     {
+        ulong GetPieceBitboard(PieceType pieceType) => board.GetPieceBitboard(pieceType, isWhite);
+
         var psqt = isWhite? whitePSQT: blackPSQT;
         int res = 0, gamePhase = 0, eg = 0, mg = 0;
         for (int piece = 0; piece < 6; piece++)
@@ -146,86 +127,36 @@ public class MyBot : IChessBot
             PieceType pieceType = (PieceType)piece + 1;
 
             int count = board.GetPieceList(pieceType, isWhite).Count;
-            // PIECE SQUARE VALUE SUMS
             res += count * pieceValues[piece];
             gamePhase += count * gamePhaseIncs[piece];
+            ulong posBitBoard = GetPieceBitboard(pieceType);
 
-            // PIECE SQUARE ESTIMATES
-            ulong posBitBoard = board.GetPieceBitboard(pieceType, true);
-
-            for (int b = 0; b < 8; b++)
+            for (int b = 0; b < 8; b++) 
             {
-                mg += PopCount(posBitBoard & psqt[piece * 8 + b]) * (1 << b);
-                eg += PopCount(posBitBoard & psqt[piece * 8 + b + whitePSQT.Length/2]) * (1 << b);
+                int getPSQT(int x) => PopCount(posBitBoard & psqt[piece * 8 + b + x]) * (1 << b);
+                mg += getPSQT(0);
+                eg += getPSQT(48);
             }
         }
-
-        gamePhase = Math.Max(gamePhase, 24);
-        ulong enemyPawnBB = board.GetPieceBitboard(PieceType.Pawn, !isWhite);
-        ulong enemyBB = isWhite ? board.BlackPiecesBitboard : board.WhitePiecesBitboard;
-        int enemyCount = PopCount(enemyBB);
+        //gamePhase = Math.Max(gamePhase, 24);
         // KING SAFETY
-        ulong kingBB = board.GetPieceBitboard(PieceType.King, isWhite);
+        ulong kingBB = GetPieceBitboard(PieceType.King), enemyBB = isWhite ? board.BlackPiecesBitboard : board.WhitePiecesBitboard; ;
         int kingPos = BitboardHelper.ClearAndGetIndexOfLSB(ref kingBB);
-        ulong kingQuadrantBitboard = getQuadrantBitboard(kingPos);
-        
-        int attackingPiecesCount = PopCount(enemyBB ^ enemyPawnBB ^ board.GetPieceBitboard(PieceType.King, !isWhite) & kingQuadrantBitboard);
+        ulong kingQuadrantBitboard = BitboardHelper.GetKingAttacks(new (kingPos));
         // bad if there are more enemies in the king's quadrant than friendies
-        mg -= attackWeights[attackingPiecesCount] / 5;
+        mg -= attackWeights[PopCount(enemyBB & kingQuadrantBitboard)];
         
-        mg -= PopCount(BitboardHelper.GetSliderAttacks(PieceType.Queen, new (kingPos), board)) ;
+        mg -= PopCount(BitboardHelper.GetSliderAttacks(PieceType.Queen, new (kingPos), board)) / 2;
         // BISHOP PAIR
-        if (PopCount(board.GetPieceBitboard(PieceType.Bishop, isWhite)) >= 2) res += 30;
-
-        // PAWN STRUCTURE
-        //foreach (int index in IterBitboard(friendlyPawnBB))
-        //{
-
-        //}
-        // ROOK OPEN FILES
-
+        if (board.GetPieceList(PieceType.Bishop, isWhite).Count >= 2) res += 30;
+        
         res += (mg * gamePhase + eg * (24 - gamePhase)) / 24;
         
         return res;
     }
    
 
-    void SortMoves(ref Move[] moves)
-    {
+    int PopCount(ulong bitboard) => BitOperations.PopCount(bitboard);
 
-        var moveScores = new int[moves.Length];
-        for (int i = 0; i < moves.Length; i++)
-        {
-            Move move = moves[i];
-            if (move.IsCapture)
-            {   
-                moveScores[i] += pieceValues[(int)move.CapturePieceType-1] - pieceValues[(int)move.MovePieceType-1] / 10;
-
-            }
-            
-            // negate so that the moves get sorted best to worst
-            moveScores[i] *= -1;
-        }
-        
-        Array.Sort(moveScores, moves);
-    }
-
-    int PopLsb(ref ulong bitmap) => BitboardHelper.ClearAndGetIndexOfLSB(ref bitmap);
-
-    static int PopCount(ulong bitboard) => BitOperations.PopCount(bitboard);
-    
-    ulong getQuadrantBitboard(int index)
-    {
-        ulong bb = BitboardHelper.GetKingAttacks(new (index));
-        if (board.IsWhiteToMove) return bb | (bb >> 8) | (bb >> 16);
-        else return bb | (bb << 8) | (bb << 16);
-    }
-    
-    
-    bool ShouldFinishSearch()
-    {
-        return timer.MillisecondsElapsedThisTurn > 50;
-    }
-    
-    
 }
+

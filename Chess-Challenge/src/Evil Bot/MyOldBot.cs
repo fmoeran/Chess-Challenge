@@ -124,11 +124,13 @@ public class MyOldBot : IChessBot
     
     public Move Think(Board pboard, Timer ptimer)
     {
+        
         board = pboard;
         timer = ptimer;
         Move bestMove = Move.NullMove;
         Move bestMoveThisIteration = Move.NullMove;
         int depth = 0;
+        
         while (!ShouldFinishSearch())
         {
             bestMove = bestMoveThisIteration;
@@ -136,6 +138,7 @@ public class MyOldBot : IChessBot
 
             bestMoveThisIteration = NegaMax(depth, NEGATIVE_INFINITY, POSITIVE_INFINITY).move;
         }
+
         
         return bestMove;
     }
@@ -205,11 +208,6 @@ public class MyOldBot : IChessBot
         return res;
     }
 
-    int GetPieceValue(Square sq)
-    {
-        return pieceValues[(int)board.GetPiece(sq).PieceType - 1];
-    }
-
     void sortMoves(ref Move[] moves)
     {
 
@@ -219,17 +217,17 @@ public class MyOldBot : IChessBot
             Move move = moves[i];
             if (move.IsCapture)
             {
-                moveScores[i] += GetPieceValue(move.TargetSquare) - GetPieceValue(move.StartSquare) / 10;
+                moveScores[i] += pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1] / 10;
 
             }
-            
+
             // negate so that the moves get sorted best to worst
             moveScores[i] *= -1;
         }
-        
+
         Array.Sort(moveScores, moves);
     }
-    
+
 
     bool ShouldFinishSearch()
     {
